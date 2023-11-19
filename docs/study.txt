@@ -1,0 +1,14 @@
+F = Forca gravitacional
+D = Distancia entre os corpos
+M1 = Massa do corpo 1
+M2 = Massa do corpo 2
+G = Constante gravitacional
+
+F = G * (M1 * M2 / D * D)
+
+
+F = Forca gravitacional
+M = Massa
+A = Aceleracao
+
+F = M * A
