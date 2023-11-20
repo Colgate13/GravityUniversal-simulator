@@ -17,6 +17,7 @@
  */
 #define VERBOSE 1
 #define MAX_BODIES 100
+#define CONST_PROPORTION 10
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 700
 #define HEIGHT_PROPORTION(x) ((int)(SCREEN_HEIGHT * (x) / 300))
@@ -24,6 +25,8 @@
 #define FPS 60
 #define G 6.67408e-11
 #define TRAIL_LENGTH 1000000
+#define ONE_AU 100 // 1 AU = 100 pixels
+#define AU(x) ((int)(x * ONE_AU))
 
 /**
  * @details types declarations
@@ -37,14 +40,21 @@ typedef struct
 
 typedef struct
 {
+  double x;
+  double y;
+} BodyVector;
+
+typedef struct
+{
   char *name;
   float mass;
   float radius;
   Vector2 position;
   Vector2 speed;
-  Vector2 acceleration;
+  BodyVector acceleration;
   Vector2 force;
   Texture2D texture;
+  Trail trail;
 } Body;
 
 typedef struct
@@ -57,14 +67,13 @@ typedef struct
 /**
  * @details global variables
  */
-Trail meteorTrail = {0};
 float ZOOM = 1.0f;
 char str[100];
 
 /**
  * @details functions declarations
  */
-Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2 speed, Vector2 acceleration, Texture2D texture);
+Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2 speed, BodyVector acceleration, Texture2D texture);
 void UpdateTrail(Trail *trail, Vector2 newPosition);
 double BodyDistance(Body *body1, Body *body2);
 void BodyUpdateSpeed(Body *body);
@@ -86,24 +95,30 @@ int main(void)
    * @details load textures
    */
   Texture2D backgroundTexture = LoadTexture("assets/backgrounds/space.png");
-  backgroundTexture.height = 3072;
-  backgroundTexture.width = 5376;
+  backgroundTexture.height = 6200;
+  backgroundTexture.width = 6200;
 
   Texture2D MeteoriteTexture = LoadTexture("assets/others/meteorite.png");
-  MeteoriteTexture.height = HEIGHT_PROPORTION(10);
-  MeteoriteTexture.width = WIDTH_PROPORTION(10);
+  MeteoriteTexture.height = HEIGHT_PROPORTION(50);
+  MeteoriteTexture.width = WIDTH_PROPORTION(50);
 
   Texture2D EarthTexture = LoadTexture("assets/words/earth3.png");
   EarthTexture.height = HEIGHT_PROPORTION(60);
   EarthTexture.width = WIDTH_PROPORTION(60);
 
-  Body *Earth = BodyCreate("Earth", 5.972e12, HEIGHT_PROPORTION(60), (Vector2){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2}, (Vector2){0, 0}, (Vector2){0, 0}, EarthTexture);
-  Body *Meteorite = BodyCreate("Meteorite", 1000, HEIGHT_PROPORTION(10), (Vector2){300, 200}, (Vector2){1, -1.2}, (Vector2){0, -0.1}, MeteoriteTexture);
+  Texture2D SunTexture = LoadTexture("assets/others/sun.png");
+  SunTexture.height = AU(25);
+  SunTexture.width = AU(25);
+
+  Body *Sun = BodyCreate("Sun", 100e15, AU(25) / 2, (Vector2){backgroundTexture.width / 2, backgroundTexture.height / 2}, (Vector2){0, 0}, (BodyVector){0, 0}, SunTexture);
+  Body *Earth = BodyCreate("Earth", 5.972e12, AU(10) / 2, (Vector2){0, 0}, (Vector2){25, -25}, (BodyVector){0, 0}, EarthTexture);
+  Body *Meteorite = BodyCreate("Meteorite", 1000, HEIGHT_PROPORTION(50) / 2, (Vector2){300, 250}, (Vector2){2, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
   Body **bodies = malloc(2 * sizeof(Body *));
   bodies[0] = Earth;
-  bodies[1] = Meteorite;
+  bodies[1] = Sun;
   unsigned long BodieSize = 2;
+  unsigned int meteorTarget = 0;
 
   Crosshair *crosshair = DrawCrosshair(10, WHITE);
 
@@ -112,26 +127,36 @@ int main(void)
     BeginDrawing();
     ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
 
+    if (meteorTarget == 1)
+    {
+      crosshair->position.x = Earth->position.x;
+      crosshair->position.y = Earth->position.y;
+    }
+
     if (IsKeyDown(KEY_W))
-      crosshair->position.y -= 10;
+      crosshair->position.y -= 1 + (CONST_PROPORTION / ZOOM);
     if (IsKeyDown(KEY_S))
-      crosshair->position.y += 10;
+      crosshair->position.y += 1 + (CONST_PROPORTION / ZOOM);
     if (IsKeyDown(KEY_A))
-      crosshair->position.x -= 10;
+      crosshair->position.x -= 1 + (CONST_PROPORTION / ZOOM);
     if (IsKeyDown(KEY_D))
-      crosshair->position.x += 10;
+      crosshair->position.x += 1 + (CONST_PROPORTION / ZOOM);
+    if (IsKeyPressed(KEY_SPACE))
+    {
+      meteorTarget = (meteorTarget == 0) ? 1 : 0;
+    }
 
     ZOOM = ControlZoom(ZOOM);
     Camera2D *Camera = CreateCamera((Vector2){crosshair->position.x, crosshair->position.y}, (Vector2){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2}, 0.0f, ZOOM);
     BeginMode2D(*Camera);
-    DrawTextureEx(backgroundTexture, (Vector2){-backgroundTexture.width / 2, -backgroundTexture.height / 2}, 0.0f, 1.0f, WHITE);
+    DrawTextureEx(backgroundTexture, (Vector2){-backgroundTexture.width / 2, -backgroundTexture.height / 2}, 0.0f, 2, WHITE);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
       char meteoriteName[20];
       generateRandomMeteoriteName(meteoriteName, 15);
 
-      Body *newMeteor = BodyCreate(meteoriteName, 1, HEIGHT_PROPORTION(10), crosshair->position, (Vector2){1, -1.2}, (Vector2){0, -0.1}, MeteoriteTexture);
+      Body *newMeteor = BodyCreate(meteoriteName, 1, HEIGHT_PROPORTION(10), crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
       bodies = realloc(bodies, (BodieSize + 1) * sizeof(Body *));
 
@@ -140,28 +165,28 @@ int main(void)
       if (bodies == NULL)
       {
         printf("Erro ao alocar memória para o novo corpo\n");
-        system("pause");
         exit(1);
       }
       bodies[BodieSize - 1] = newMeteor;
     }
 
     BodiesUpdateAcceleration(bodies, BodieSize);
-    DrawTrail(&meteorTrail);
     for (unsigned long i = 0; i < BodieSize; i++)
     {
       Body *body = bodies[i];
-
+      // Sun->acceleration.x = 0;
+      // Sun->acceleration.y = 0;
+      DrawTrail(&body->trail);
+      BodyUpdateSpeed(body);
+      BodyUpdatePosition(body);
       DrawTextureV(body->texture,
                    (Vector2){
                        body->position.x - body->texture.width / 2,
                        body->position.y - body->texture.height / 2},
                    WHITE);
 
-      BodyUpdateSpeed(body);
-      BodyUpdatePosition(body);
+      UpdateTrail(&body->trail, body->position);
     }
-    UpdateTrail(&meteorTrail, Meteorite->position);
     DrawLine(crosshair->position.x - crosshair->size, crosshair->position.y, crosshair->position.x + crosshair->size, crosshair->position.y, crosshair->color);
     DrawLine(crosshair->position.x, crosshair->position.y - crosshair->size, crosshair->position.x, crosshair->position.y + crosshair->size, crosshair->color);
 
@@ -173,7 +198,7 @@ int main(void)
   return 0;
 }
 
-Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2 speed, Vector2 acceleration, Texture2D texture)
+Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2 speed, BodyVector acceleration, Texture2D texture)
 {
   Body *body = malloc(sizeof(Body));
   assert(body != NULL);
@@ -186,6 +211,7 @@ Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2
   body->acceleration = acceleration;
   body->force = (Vector2){0, 0};
   body->texture = texture;
+  body->trail = (Trail){0};
 
   return body;
 }
@@ -215,7 +241,7 @@ void UpdateTrail(Trail *trail, Vector2 newPosition)
 float ControlZoom(float zoom)
 {
   zoom += GetMouseWheelMove() * 0.05f;
-  zoom = (zoom < 0.25f) ? 0.25f : zoom;
+  zoom = (zoom < 0.05f) ? 0.05f : zoom;
 
   return zoom;
 }
@@ -279,6 +305,7 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
         if (distance < body1->radius + body2->radius)
         {
           printf("Colisão entre %s e %s\n", body1->name, body2->name);
+          exit(1);
           continue;
         }
 
@@ -290,8 +317,8 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
         double cosT = deltaX / distance;
         double senT = deltaY / distance;
 
-        float forceX = (float)force * (float)cosT;
-        float forceY = (float)force * (float)senT;
+        double forceX = force * cosT;
+        double forceY = force * senT;
 
         body1->force.x += forceX;
         body1->force.y += forceY;
@@ -338,8 +365,8 @@ Crosshair *DrawCrosshair(int size, Color color)
   Crosshair *crosshair = malloc(sizeof(Crosshair));
   assert(crosshair != NULL);
 
-  crosshair->position.x = SCREEN_WIDTH / 2;
-  crosshair->position.y = SCREEN_HEIGHT / 2;
+  crosshair->position.x = 3100;
+  crosshair->position.y = 3100;
   crosshair->size = size;
   crosshair->color = color;
 
