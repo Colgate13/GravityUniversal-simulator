@@ -1,2 +1,1 @@
-# musicVisualizer
 # GravityUniversal-simulator
