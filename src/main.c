@@ -11,80 +11,14 @@
 #include <math.h>
 #include <time.h>
 #include <raylib.h>
-
-/**
- * @details macros declarations
- */
-#define VERBOSE 1
-#define MAX_BODIES 100
-#define CONST_PROPORTION 10
-#define SCREEN_WIDTH 1024
-#define SCREEN_HEIGHT 700
-#define HEIGHT_PROPORTION(x) ((int)(SCREEN_HEIGHT * (x) / 300))
-#define WIDTH_PROPORTION(x) ((int)(SCREEN_HEIGHT * (x) / 300))
-#define FPS 60
-#define G 6.67408e-11
-#define TRAIL_LENGTH 1000000
-#define ONE_AU 100 // 1 AU = 100 pixels
-#define AU(x) ((int)(x * ONE_AU))
-
-/**
- * @details types declarations
- */
-typedef struct
-{
-  Vector2 positions[TRAIL_LENGTH];
-  int index;
-  int count;
-} Trail;
-
-typedef struct
-{
-  double x;
-  double y;
-} BodyVector;
-
-typedef struct
-{
-  char *name;
-  float mass;
-  float radius;
-  Vector2 position;
-  Vector2 speed;
-  BodyVector acceleration;
-  Vector2 force;
-  Texture2D texture;
-  Trail trail;
-} Body;
-
-typedef struct
-{
-  Vector2 position;
-  unsigned long size;
-  Color color;
-} Crosshair;
+#include "../includes/Main.h"
 
 /**
  * @details global variables
  */
 float ZOOM = 1.0f;
 char str[100];
-
-/**
- * @details functions declarations
- */
-Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2 speed, BodyVector acceleration, Texture2D texture);
-void UpdateTrail(Trail *trail, Vector2 newPosition);
-double BodyDistance(Body *body1, Body *body2);
-void BodyUpdateSpeed(Body *body);
-void BodyUpdatePosition(Body *body);
-void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size);
-void DrawTrail(const Trail *trail);
-float ControlZoom(float ZOOM);
-Camera2D *CreateCamera(Vector2 target, Vector2 offset, float rotation, float zoom);
-void DrawBodyInfo(Body *body);
-void generateRandomMeteoriteName(char *name, int nameLength);
-Crosshair *DrawCrosshair(int size, Color color);
+unsigned long BodieSize = 2;
 
 int main(void)
 {
@@ -99,25 +33,24 @@ int main(void)
   backgroundTexture.width = 6200;
 
   Texture2D MeteoriteTexture = LoadTexture("assets/others/meteorite.png");
-  MeteoriteTexture.height = HEIGHT_PROPORTION(50);
-  MeteoriteTexture.width = WIDTH_PROPORTION(50);
+  MeteoriteTexture.height = AU(1);
+  MeteoriteTexture.width = AU(1);
 
   Texture2D EarthTexture = LoadTexture("assets/words/earth3.png");
-  EarthTexture.height = HEIGHT_PROPORTION(60);
-  EarthTexture.width = WIDTH_PROPORTION(60);
+  EarthTexture.height = AU(5);
+  EarthTexture.width = AU(5);
 
   Texture2D SunTexture = LoadTexture("assets/others/sun.png");
   SunTexture.height = AU(25);
   SunTexture.width = AU(25);
 
   Body *Sun = BodyCreate("Sun", 100e15, AU(25) / 2, (Vector2){backgroundTexture.width / 2, backgroundTexture.height / 2}, (Vector2){0, 0}, (BodyVector){0, 0}, SunTexture);
-  Body *Earth = BodyCreate("Earth", 5.972e12, AU(10) / 2, (Vector2){0, 0}, (Vector2){25, -25}, (BodyVector){0, 0}, EarthTexture);
-  Body *Meteorite = BodyCreate("Meteorite", 1000, HEIGHT_PROPORTION(50) / 2, (Vector2){300, 250}, (Vector2){2, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
+  Body *Earth = BodyCreate("Earth", 5.972e12, AU(5) / 2, (Vector2){0, 0}, (Vector2){25, -25}, (BodyVector){0, 0}, EarthTexture);
+  Body *Meteorite = BodyCreate("Meteorite", 1000, AU(1) / 2, (Vector2){300, 250}, (Vector2){2, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
   Body **bodies = malloc(2 * sizeof(Body *));
   bodies[0] = Earth;
   bodies[1] = Sun;
-  unsigned long BodieSize = 2;
   unsigned int meteorTarget = 0;
 
   Crosshair *crosshair = DrawCrosshair(10, WHITE);
@@ -156,7 +89,7 @@ int main(void)
       char meteoriteName[20];
       generateRandomMeteoriteName(meteoriteName, 15);
 
-      Body *newMeteor = BodyCreate(meteoriteName, 1, HEIGHT_PROPORTION(10), crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
+      Body *newMeteor = BodyCreate(meteoriteName, 1, AU(1), crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
       bodies = realloc(bodies, (BodieSize + 1) * sizeof(Body *));
 
@@ -174,8 +107,6 @@ int main(void)
     for (unsigned long i = 0; i < BodieSize; i++)
     {
       Body *body = bodies[i];
-      // Sun->acceleration.x = 0;
-      // Sun->acceleration.y = 0;
       DrawTrail(&body->trail);
       BodyUpdateSpeed(body);
       BodyUpdatePosition(body);
@@ -184,6 +115,7 @@ int main(void)
                        body->position.x - body->texture.width / 2,
                        body->position.y - body->texture.height / 2},
                    WHITE);
+      DrawCircleLines(body->position.x, body->position.y, body->radius, RED);
 
       UpdateTrail(&body->trail, body->position);
     }
@@ -191,7 +123,7 @@ int main(void)
     DrawLine(crosshair->position.x, crosshair->position.y - crosshair->size, crosshair->position.x, crosshair->position.y + crosshair->size, crosshair->color);
 
     EndMode2D();
-    DrawBodyInfo(Meteorite);
+    DrawBodyInfo(Earth);
     EndDrawing();
   }
 
@@ -218,13 +150,13 @@ Body *BodyCreate(char *name, float mass, float radius, Vector2 position, Vector2
 
 void DrawBodyInfo(Body *body)
 {
-  snprintf(str, sizeof(str), "Meteorite.speed.{x: %f, y: %f}", body->speed.x, body->speed.y);
+  snprintf(str, sizeof(str), "%s.speed.{x: %f, y: %f}", body->name, body->speed.x, body->speed.y);
   DrawText(str, 10, 10, 20, WHITE);
 
-  snprintf(str, sizeof(str), "body.acceleration.{x: %f, y: %f}", body->acceleration.x, body->acceleration.y);
+  snprintf(str, sizeof(str), "%s.acceleration.{x: %f, y: %f}", body->name, body->acceleration.x, body->acceleration.y);
   DrawText(str, 10, 30, 20, WHITE);
 
-  snprintf(str, sizeof(str), "body.position.{x: %f, y: %f", body->position.x, body->position.y);
+  snprintf(str, sizeof(str), "%s.position.{x: %f, y: %f", body->name, body->position.x, body->position.y);
   DrawText(str, 10, 50, 20, WHITE);
 }
 
@@ -262,11 +194,6 @@ Camera2D *CreateCamera(Vector2 target, Vector2 offset, float rotation, float zoo
 double BodyDistance(Body *body1, Body *body2)
 {
   // pitagoras = a² + b² = c²
-  // H = sqrt((x2 - x1)² + (y2 - y1)²)
-  // if (body1 == NULL || body2 == NULL) {
-  //     return -1;
-  // }
-
   double a = body2->position.x - body1->position.x;
   double b = body2->position.y - body1->position.y;
 
@@ -305,7 +232,29 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
         if (distance < body1->radius + body2->radius)
         {
           printf("Colisão entre %s e %s\n", body1->name, body2->name);
-          exit(1);
+
+          if (body1->mass > body2->mass) {
+            body1->mass += body2->mass;
+            body1->radius += body2->radius;
+            body1->texture.height += body2->texture.height;
+            body1->texture.width += body2->texture.width;
+
+            Bodies[j] = Bodies[size - 1];
+            Bodies[size - 1] = NULL;
+            size--;
+            BodieSize--;
+          } else {
+            body2->mass += body1->mass;
+            body2->radius += body1->radius;
+            body2->texture.height += body1->texture.height;
+            body2->texture.width += body1->texture.width;
+
+            Bodies[i] = Bodies[size - 1];
+            Bodies[size - 1] = NULL;
+            size--;
+            BodieSize--;
+          }
+
           continue;
         }
 
