@@ -36,7 +36,7 @@ int main(void)
   MeteoriteTexture.height = AU(1);
   MeteoriteTexture.width = AU(1);
 
-  Texture2D EarthTexture = LoadTexture("assets/words/earth3.png");
+  Texture2D EarthTexture = LoadTexture("assets/words/earth.png");
   EarthTexture.height = AU(5);
   EarthTexture.width = AU(5);
 
@@ -89,7 +89,7 @@ int main(void)
       char meteoriteName[20];
       generateRandomMeteoriteName(meteoriteName, 15);
 
-      Body *newMeteor = BodyCreate(meteoriteName, 1, AU(1), crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
+      Body *newMeteor = BodyCreate(meteoriteName, 1000, AU(1) / 2, crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
       bodies = realloc(bodies, (BodieSize + 1) * sizeof(Body *));
 
@@ -115,8 +115,6 @@ int main(void)
                        body->position.x - body->texture.width / 2,
                        body->position.y - body->texture.height / 2},
                    WHITE);
-      DrawCircleLines(body->position.x, body->position.y, body->radius, RED);
-
       UpdateTrail(&body->trail, body->position);
     }
     DrawLine(crosshair->position.x - crosshair->size, crosshair->position.y, crosshair->position.x + crosshair->size, crosshair->position.y, crosshair->color);
@@ -235,9 +233,15 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
 
           if (body1->mass > body2->mass) {
             body1->mass += body2->mass;
-            body1->radius += body2->radius;
-            body1->texture.height += body2->texture.height;
-            body1->texture.width += body2->texture.width;
+
+            float body1Area = PI * (body1->radius * body1->radius);
+            float body2Area = PI * (body2->radius * body2->radius);
+            float area = body1Area + body2Area;
+            float radius = sqrt(area / PI);
+
+            body1->radius = radius;
+            body1->texture.height = radius * 2;
+            body1->texture.width = radius * 2;
 
             Bodies[j] = Bodies[size - 1];
             Bodies[size - 1] = NULL;
@@ -245,9 +249,16 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
             BodieSize--;
           } else {
             body2->mass += body1->mass;
-            body2->radius += body1->radius;
-            body2->texture.height += body1->texture.height;
-            body2->texture.width += body1->texture.width;
+
+            float body1Area = PI * (body1->radius * body1->radius);
+            float body2Area = PI * (body2->radius * body2->radius);
+
+            float area = body1Area + body2Area;
+            float radius = sqrt(area / PI);
+
+            body2->radius = radius;
+            body2->texture.height = radius * 2;
+            body2->texture.width = radius * 2;
 
             Bodies[i] = Bodies[size - 1];
             Bodies[size - 1] = NULL;
