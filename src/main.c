@@ -18,7 +18,7 @@
  */
 float ZOOM = 1.0f;
 char str[100];
-unsigned long BodieSize = 2;
+unsigned long BodieSize = 3;
 
 int main(void)
 {
@@ -28,10 +28,6 @@ int main(void)
   /**
    * @details load textures
    */
-  Texture2D backgroundTexture = LoadTexture("assets/backgrounds/space.png");
-  backgroundTexture.height = 6200;
-  backgroundTexture.width = 6200;
-
   Texture2D MeteoriteTexture = LoadTexture("assets/others/meteorite.png");
   MeteoriteTexture.height = AU(1);
   MeteoriteTexture.width = AU(1);
@@ -44,13 +40,14 @@ int main(void)
   SunTexture.height = AU(25);
   SunTexture.width = AU(25);
 
-  Body *Sun = BodyCreate("Sun", 100e15, AU(25) / 2, (Vector2){backgroundTexture.width / 2, backgroundTexture.height / 2}, (Vector2){0, 0}, (BodyVector){0, 0}, SunTexture);
-  Body *Earth = BodyCreate("Earth", 5.972e12, AU(5) / 2, (Vector2){0, 0}, (Vector2){25, -25}, (BodyVector){0, 0}, EarthTexture);
-  Body *Meteorite = BodyCreate("Meteorite", 1000, AU(1) / 2, (Vector2){300, 250}, (Vector2){2, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
+  Body *Sun = BodyCreate("Sun", 100e15, AU(25) / 2, (Vector2){6200 / 2, 6200 / 2}, (Vector2){5, -5}, (BodyVector){0, 0}, SunTexture);
+  Body *Earth = BodyCreate("Earth", 5.972e12, AU(5) / 2, (Vector2){0, -5}, (Vector2){40, -40}, (BodyVector){0, 0}, EarthTexture);
+  Body *Meteorite = BodyCreate("Meteorite", 1e10, AU(1) / 2, (Vector2){300, 250}, (Vector2){40, -40}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
-  Body **bodies = malloc(2 * sizeof(Body *));
+  Body **bodies = malloc(3 * sizeof(Body *));
   bodies[0] = Earth;
   bodies[1] = Sun;
+  bodies[2] = Meteorite;
   unsigned int meteorTarget = 0;
 
   Crosshair *crosshair = DrawCrosshair(10, WHITE);
@@ -82,14 +79,16 @@ int main(void)
     ZOOM = ControlZoom(ZOOM);
     Camera2D *Camera = CreateCamera((Vector2){crosshair->position.x, crosshair->position.y}, (Vector2){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2}, 0.0f, ZOOM);
     BeginMode2D(*Camera);
-    DrawTextureEx(backgroundTexture, (Vector2){-backgroundTexture.width / 2, -backgroundTexture.height / 2}, 0.0f, 2, WHITE);
+    float raioCircleLines = (CONST_PROPORTION / ZOOM) + 200;
+    int fontSize = (CONST_PROPORTION / ZOOM) + 300;
+    Color textColor = WHITE;
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
       char meteoriteName[20];
       generateRandomMeteoriteName(meteoriteName, 15);
 
-      Body *newMeteor = BodyCreate(meteoriteName, 1000, AU(1) / 2, crosshair->position, (Vector2){1, -1.2}, (BodyVector){0, -0.1}, MeteoriteTexture);
+      Body *newMeteor = BodyCreate(meteoriteName, 1e10, AU(1) / 2, crosshair->position, (Vector2){40, -40}, (BodyVector){0, -0.1}, MeteoriteTexture);
 
       bodies = realloc(bodies, (BodieSize + 1) * sizeof(Body *));
 
@@ -116,6 +115,8 @@ int main(void)
                        body->position.y - body->texture.height / 2},
                    WHITE);
       UpdateTrail(&body->trail, body->position);
+      DrawText(body->name, body->position.x - MeasureText(body->name, fontSize) / 2, body->position.y - (body->radius) - fontSize, fontSize, textColor); // TERRA
+      DrawCircleLines(body->position.x, body->position.y, raioCircleLines, GREEN);
     }
     DrawLine(crosshair->position.x - crosshair->size, crosshair->position.y, crosshair->position.x + crosshair->size, crosshair->position.y, crosshair->color);
     DrawLine(crosshair->position.x, crosshair->position.y - crosshair->size, crosshair->position.x, crosshair->position.y + crosshair->size, crosshair->color);
@@ -160,19 +161,29 @@ void DrawBodyInfo(Body *body)
 
 void UpdateTrail(Trail *trail, Vector2 newPosition)
 {
-  trail->positions[trail->index] = newPosition;
-  trail->index = (trail->index + 1) % TRAIL_LENGTH;
   if (trail->count < TRAIL_LENGTH)
   {
+    trail->positions[trail->count] = newPosition;
     trail->count++;
+  }
+  else
+  {
+    for (int i = 0; i < TRAIL_LENGTH - 1; i++)
+    {
+      trail->positions[i] = trail->positions[i + 1];
+    }
+
+    trail->positions[TRAIL_LENGTH - 1] = newPosition;
   }
 }
 
 float ControlZoom(float zoom)
 {
-  zoom += GetMouseWheelMove() * 0.05f;
-  zoom = (zoom < 0.05f) ? 0.05f : zoom;
-
+  const float factor = 0.1f;
+  float zoomPower = zoom * factor;
+  zoomPower = (zoomPower > 0.1f) ? 0.1f : zoomPower;
+  zoom += GetMouseWheelMove() * zoomPower;
+  zoom = (zoom < 0.000005f) ? 0.000005f : zoom;
   return zoom;
 }
 
@@ -231,7 +242,8 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
         {
           printf("Colisão entre %s e %s\n", body1->name, body2->name);
 
-          if (body1->mass > body2->mass) {
+          if (body1->mass > body2->mass)
+          {
             body1->mass += body2->mass;
 
             float body1Area = PI * (body1->radius * body1->radius);
@@ -247,7 +259,9 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
             Bodies[size - 1] = NULL;
             size--;
             BodieSize--;
-          } else {
+          }
+          else
+          {
             body2->mass += body1->mass;
 
             float body1Area = PI * (body1->radius * body1->radius);
@@ -297,9 +311,10 @@ void BodiesUpdateAcceleration(Body *Bodies[], unsigned long size)
 
 void DrawTrail(const Trail *trail)
 {
-  for (int i = 0; i < trail->count; i++)
+  for (int i = 0; i < trail->count - 1; i++)
   {
-    DrawCircleV(trail->positions[i], 2, GREEN);
+    int nextIndex = (i + 1) % TRAIL_LENGTH;
+    DrawLineV(trail->positions[i], trail->positions[nextIndex], GREEN);
   }
 }
 

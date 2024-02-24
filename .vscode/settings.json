@@ -8,6 +8,8 @@
     "random": "c",
     "cmath": "c",
     "functional": "c",
-    "time.h": "c"
+    "time.h": "c",
+    "assert.h": "c",
+    "main.h": "c"
   }
 }
