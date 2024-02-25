@@ -79,7 +79,7 @@ int main(void)
     ZOOM = ControlZoom(ZOOM);
     Camera2D *Camera = CreateCamera((Vector2){crosshair->position.x, crosshair->position.y}, (Vector2){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2}, 0.0f, ZOOM);
     BeginMode2D(*Camera);
-    float raioCircleLines = (CONST_PROPORTION / ZOOM) + 200;
+    float raioCircleLines = (CONST_PROPORTION / ZOOM);
     int fontSize = (CONST_PROPORTION / ZOOM) + 300;
     Color textColor = WHITE;
 
@@ -116,7 +116,7 @@ int main(void)
                    WHITE);
       UpdateTrail(&body->trail, body->position);
       DrawText(body->name, body->position.x - MeasureText(body->name, fontSize) / 2, body->position.y - (body->radius) - fontSize, fontSize, textColor); // TERRA
-      DrawCircleLines(body->position.x, body->position.y, raioCircleLines, GREEN);
+      DrawCircleLines(body->position.x, body->position.y, body->radius + raioCircleLines, GREEN);
     }
     DrawLine(crosshair->position.x - crosshair->size, crosshair->position.y, crosshair->position.x + crosshair->size, crosshair->position.y, crosshair->color);
     DrawLine(crosshair->position.x, crosshair->position.y - crosshair->size, crosshair->position.x, crosshair->position.y + crosshair->size, crosshair->color);
