@@ -2,6 +2,8 @@
 
 This project is an interactive simulation of Newton's law of universal gravitation, developed using the Raylib library in C. It allows users to visualize and interact with celestial bodies, observing the effects of gravity on their trajectories and velocities.
 
+<img src="https://raw.githubusercontent.com/Colgate13/GravityUniversal-simulator/main/assets/preview.png" width="500"></img>
+
 ## Features
 
 - Real-time simulation of gravity between celestial bodies.
